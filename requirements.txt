@@ -1,5 +1,9 @@
 Flask
 Flask-Login
+Flask-Mail
 Flask-SQLAlchemy
-Werkzeug
+gunicorn
+itsdangerous
 python-dotenv
+Werkzeug
+
