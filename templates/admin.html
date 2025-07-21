@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Admin Panel</h2>
+
+
+
+<h3>Players</h3>
+<table border="1" class="admin-table">
+  <tr>
+    <th>Username</th>
+    <th>Status</th>
+    <th>Admin</th>
+    <th>Actions</th>
+  </tr>
+  {% for player in players %}
+  <tr>
+    <td>{{ player.username }}</td>
+    <td>{{ player.status }}</td>
+    <td>
+      <form method="POST" action="{{ url_for('routes.toggle_admin') }}">
+        <input type="hidden" name="player_id" value="{{ player.id }}">
+        <input type="checkbox" name="is_admin"
+               onchange="this.form.submit()" {% if player.is_admin %}checked{% endif %}
+               {% if player.id == current_user.id %}disabled{% endif %}>
+      </form>
+    </td>
+    <td>
+      <form method="POST" action="{{ url_for('routes.toggle_player_status') }}">
+        <input type="hidden" name="player_id" value="{{ player.id }}">
+        <button type="submit">
+          {{ 'Reactivate' if player.status == 'suspended' else 'Suspend' }}
+        </button>
+      </form>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+
+
+<h3>Player Rules</h3>
+<form method="POST" action="{{ url_for('routes.update_player_flags') }}">
+  <table>
+    <tr>
+      <th>Username</th>
+      <th>Multi-Target</th>
+      <th>Max Targets</th>
+      <th>Multi-Contracts</th>
+      <th>Max Contracts</th>
+    </tr>
+    {% for player in players %}
+    <tr>
+      <td>{{ player.username }}</td>
+      <td>
+        <input type="checkbox" name="multi_targets_{{ player.id }}" {% if player.can_be_targeted_multiple_times %}checked{% endif %}>
+      </td>
+      <td>
+        <input name="max_targets_{{ player.id }}" value="{{ player.max_times_targeted }}">
+      </td>
+      <td>
+        <input type="checkbox" name="multi_contracts_{{ player.id }}" {% if player.can_have_multiple_contracts %}checked{% endif %}>
+      </td>
+      <td>
+        <input type="number" name="max_contracts_{{ player.id }}" min="1" value="{{ player.max_contracts_per_round }}">
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+  <button type="submit">Update Rules</button>
+</form>
+
+
+<h3>Game Settings</h3>
+<form method="POST" action="{{ url_for('routes.update_settings') }}">
+  <label for="current_round">Current Round:</label>
+  <input type="number" name="current_round" min="1" value="{{ settings.current_round }}">
+
+  <br><br>
+
+  <label for="repeat_target_delay">Repeat Target Delay (Rounds):</label>
+  <input type="number" name="repeat_target_delay" min="0" value="{{ settings.repeat_target_delay }}">
+
+  <br><br>
+
+  <label for="round_duration">Round Duration (hours):</label>
+  <input type="number" name="round_duration" min="1" value="{{ settings.round_duration }}">
+
+  <br><br>
+  
+  <label for="auto_start_next_round">Auto Start Next Round:</label>
+  <input type="checkbox" name="auto_start_next_round" {% if settings.auto_start_next_round %}checked{% endif %}>
+
+
+  <br><br>
+
+  <button type="submit">Update Settings</button>
+</form>
+
+
+
+<div class="section-block">
+<h3>Live Contracts (Current Round)</h3>
+<table border="1">
+  <tr>
+    <th>Round</th>
+    <th>Assassin</th>
+    <th>Target</th>
+    <th>Status</th>
+  </tr>
+  {% for contract in contracts %}
+    <tr>
+      <td>{{ contract.round }}</td>
+      <td>{{ contract.assassin.id }}</td>
+      <td>{{ contract.target.id}}</td>
+      <td>
+        <form method="POST" action="{{ url_for('routes.update_contract_status') }}">
+          <input type="hidden" name="contract_id" value="{{ contract.id }}">
+          <select name="new_status">
+            <option value="assigned" {% if contract.status == 'assigned' %}selected{% endif %}>assigned</option>
+            <option value="complete" {% if contract.status == 'complete' %}selected{% endif %}>complete</option>
+            <option value="expired" {% if contract.status == 'expired' %}selected{% endif %}>expired</option>
+            <option value="disputed" {% if contract.status == 'disputed' %}selected{% endif %}>disputed</option>
+            <option value="verifying" {% if contract.status == 'verifying' %}selected{% endif %}>verifying</option>
+          </select>
+          <button type="submit">Update</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+</table>
+</div>
+
+<a href="{{ url_for('routes.view_all_contracts') }}">📜 View Full Contract History</a>
+
+
+
+<h3>Assign Contract</h3>
+<form method="POST" action="{{ url_for('routes.assign_contract') }}">
+  <label for="assassin">Assassin:</label>
+  <select name="assassin_id">
+  {% for player in players if player.status == 'active' %}
+    <option value="{{ player.id }}">{{ player.username }}</option>
+  {% endfor %}
+</select>
+
+
+  <label for="target">Target:</label>
+  <select name="target_id">
+  {% for player in players if player.status == 'active' %}
+    <option value="{{ player.id }}">{{ player.username }}</option>
+  {% endfor %}
+</select>
+
+
+  <button type="submit">Assign Contract</button>
+</form>
+
+
+<h3>Round Management</h3>
+
+{% if current_round %}
+  <p><strong>Round in progress</strong></p>
+  <p>Started: {{ current_round.start_time }}</p>
+  <p>Ends: {{ current_round.end_time }}</p>
+  <form method="POST" action="{{ url_for('routes.end_round') }}">
+    <button type="submit">🔴 End Round Early</button>
+  </form>
+{% else %}
+  <p><strong>No active round</strong></p>
+  <form method="POST" action="{{ url_for('routes.start_round') }}">
+    <button type="submit">🟢 Start New Round</button>
+  </form>
+{% endif %}
+
+
+<h3>Reset Live Round</h3>
+<form method="POST" action="{{ url_for('routes.reset_round') }}">
+  <button type="submit" style="background-color:red; color:white;">
+    ❌ Delete Current Round & Contracts
+  </button>
+</form>
+
+
+<h3>📝 Admin Message</h3>
+<form method="POST" action="{{ url_for('routes.update_message') }}">
+  <textarea name="message" rows="3" cols="50">{{ current_message.content if current_message else '' }}</textarea><br>
+  <button type="submit">Update Message</button>
+</form>
+
+
+
+<h3>Invite Link</h3>
+<a href="{{ url_for('routes.qr_page') }}" class="btn btn-primary">📲 Show QR Code</a>
+
+
+
+<h3>Game Rules</h3>
+<form method="POST" action="{{ url_for('routes.update_rules') }}">
+  <textarea name="rules_text" rows="8" cols="80">{{ rules.content if rules else "" }}</textarea>
+  <br>
+  <button type="submit">Update Rules</button>
+</form>
+
+{% endblock %}
+
+

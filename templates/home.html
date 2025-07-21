@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="home-layout">
+
+  <!-- Left Panel -->
+  <div class="sidebar">
+    <h3>Agegnt {{ user.username }} Activated</h3>
+
+    {% if user.profile_pic %}
+      <img src="{{ url_for('static', filename='uploads/' + user.profile_pic) }}" class="profile-pic">
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data" action="{{ url_for('routes.upload_profile_pic') }}">
+      <label for="pic">Upload Profile Picture:</label>
+      <input type="file" name="pic">
+      <button type="submit">Upload</button>
+    </form>
+
+    <hr>
+
+    <h3>Career Stats</h3>
+    <ul>
+      <li>Tags Completed: {{ total_completed }}</li>
+      <li>Expired Contracts: {{ total_unfinished }}</li>
+      <li>Times Eliminated: {{ total_eliminated }}</li>
+    </ul>
+  </div>
+
+  <!-- Main Panel -->
+  <div class="main-content">
+
+
+       <!-- Notifications styled like a terminal -->
+    <div class="terminal-box">
+      <h3>Messages from HQ</h3>
+      {% if notifications %}
+        <pre class="terminal-text">
+{% for n in notifications %}
+[!] {{ n.message }}
+{% endfor %}
+        </pre>
+      {% else %}
+        <pre class="terminal-text">[OK] No notifications.</pre>
+      {% endif %}
+    </div>
+
+
+    <!--Round Timer-->
+    {% if round_end_time %}
+      <div id="round-timer" class="terminal-box">
+        <span style="font-weight: bold;">Contract Deadline:</span>
+        <span id="countdown" class="terminal-text"></span>
+      </div>
+
+      <script>
+        const endTime = new Date("{{ round_end_time.isoformat() }}Z").getTime();
+
+        function updateCountdown() {
+          const now = new Date().getTime();
+          const distance = endTime - now;
+
+          if (distance <= 0) {
+            document.getElementById("countdown").innerHTML = "⏰ Round has ended";
+            clearInterval(timerInterval);
+            return;
+          }
+
+          const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+          const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+          document.getElementById("countdown").innerHTML =
+            `${days}d ${hours}h ${minutes}m ${seconds}s`;
+        }
+
+        const timerInterval = setInterval(updateCountdown, 1000);
+        updateCountdown();
+      </script>
+    {% endif %}
+
+     <hr>
+
+    <!-- Contracts -->
+    {% if contracts %}
+      <h3>Your Targets:</h3>
+      {% for contract in contracts %}
+        <div class="contract-box">
+          <p><strong>{{ contract.target.username }}</strong></p>
+          {% if contract.target.profile_pic %}
+            <img src="{{ url_for('static', filename='uploads/' + contract.target.profile_pic) }}" width="100">
+          {% endif %}
+          <form method="POST" action="{{ url_for('routes.complete_contract', contract_id=contract.id) }}">
+            <button type="submit">Complete Contract</button>
+          </form>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p>No active contracts assigned.</p>
+    {% endif %}
+
+    <hr>
+
+    <h3>Pending Tag Reviews</h3>
+    {% if verification_contracts %}
+      {% for contract in verification_contracts %}
+        <div class="verification-box">
+          <p><strong>{{ contract.assassin.username }}</strong> says they tagged you.</p>
+          <form method="POST" action="{{ url_for('routes.confirm_tag', contract_id=contract.id) }}">
+            <button type="submit" name="action" value="confirm">✅ Confirm</button>
+            <button type="submit" name="action" value="dispute">❌ Dispute</button>
+          </form>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p>No pending tag verifications.</p>
+    {% endif %}
+
+   <!--<p><a href="{{ url_for('routes.tag_review') }}">Go to Tag Review</a></p>--> 
+  </div>
+</div>
+
+{% endblock %}

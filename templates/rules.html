@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>📜 Game Rules</h1>
+<p>{{ rules.content if rules else "No rules have been set yet." }}</p>
+{% endblock %}

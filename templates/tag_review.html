@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Tag Review</h2>
+
+{% if contract %}
+<p><strong>{{ assassin.username }}</strong> says they tagged you.</p>
+
+<form method="POST" action="{{ url_for('routes.confirm_tag', contract_id=contract.id) }}">
+    <button type="submit" name="action" value="confirm">✅ Confirm</button>
+    <button type="submit" name="action" value="dispute">❌ Dispute</button>
+</form>
+{% else %}
+<p>No pending tag verifications.</p>
+{% endif %}
+{% endblock %}

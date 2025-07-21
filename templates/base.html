@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Assassin Tag Game</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <header class="site-header">
+    <h1> Assassin</h1>
+  </header>
+
+  <nav class="main-nav">
+    <a href="{{ url_for('routes.dashboard') }}"> Secret Lair</a>
+    <a href="{{ url_for('routes.leaderboard') }}"> Cantina</a>
+    <a href="{{ url_for('routes.rules_page') }}">Assasians Code</a>
+    {% if current_user.is_authenticated and current_user.is_admin %}
+      <a href="{{ url_for('routes.admin_panel') }}">🛠 Admin</a>
+    {% endif %}
+    {% if current_user.is_authenticated %}
+      <a href="{{ url_for('auth.logout') }}">Retire </a>
+    {% endif %}
+  </nav>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="flash">
+        {% for message in messages %}
+          <p>{{ message }}</p>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="container">
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

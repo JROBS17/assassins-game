@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Cantina</h1>
+
+<div class="leaderboard-layout">
+
+  <!-- LEFT SIDE -->
+  <div class="leader-left">
+    {% if current_round %}
+      <div class="terminal-box">
+        <strong></strong>
+        <span id="countdown" class="terminal-text"></span>
+      </div>
+      <script>
+        const endTime = new Date("{{ current_round.end_time.isoformat() }}Z").getTime();
+        const countdownEl = document.getElementById("countdown");
+
+        const timer = setInterval(() => {
+          const now = new Date().getTime();
+          const distance = endTime - now;
+
+          if (distance < 0) {
+            clearInterval(timer);
+            countdownEl.innerText = "Round ended";
+            return;
+          }
+
+          const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+          const hrs = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          const mins = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+          const secs = Math.floor((distance % (1000 * 60)) / 1000);
+
+          let display = "";
+          if (days > 0) display += `${days}d `;
+          display += `${hrs}h ${mins}m ${secs}s`;
+
+          countdownEl.innerText = display;
+        }, 1000);
+      </script>
+    {% endif %}
+
+
+    <h2>Active Kills</h2>
+    <table>
+      <tr><th>Player</th><th>Completed</th></tr>
+      {% for username, completed in live_leaderboard %}
+      <tr>
+        <td>{{ username }}</td>
+        <td>{{ completed }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <!-- RIGHT SIDE -->
+  <div class="leader-right">
+    <div class="terminal-box">
+      <h2>Messages from HQ</h2>
+      <p>{{ message.content if message else "No messages posted." }}</p>
+    </div>
+
+    <div class="leader-grid">
+      <div>
+        <h2>Top Assassians</h2>
+        <table>
+          <tr><th>Player</th><th>Contracts</th></tr>
+          {% for username, total in overall_leaderboard %}
+          <tr>
+            <td>{{ username }}</td>
+            <td>{{ total }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+
+      <div>
+        <h2>Victim Eulogy</h2>
+        <table>
+          <tr><th>Player</th><th>Eliminations</th></tr>
+          {% for username, elims in most_eliminated %}
+          <tr>
+            <td>{{ username }}</td>
+            <td>{{ elims }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
