@@ -6,7 +6,7 @@ from extensions import db
 from models import Contract, Player, Notification, Settings, Round
 from notification_utils import send_notification
 from models import Score, Player
-from app import mail
+from extensions import mail
 from werkzeug.security import generate_password_hash
 from werkzeug.security import check_password_hash
 
