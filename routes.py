@@ -677,31 +677,32 @@ def view_all_contracts():
     all_contracts = Contract.query.order_by(Contract.round.desc()).all()
     return render_template("contract_history.html", contracts=all_contracts)
 
-
-
 @routes_bp.route("/leaderboard")
 @login_required
 def leaderboard():
     from models import Contract, Player, Round, Settings, MessageBoard
 
-    # 🕐 Current round for countdown
     current_round = Round.query.filter_by(is_active=True).first()
-
-    # 📢 Latest admin message
     message = MessageBoard.query.order_by(MessageBoard.id.desc()).first()
 
-    # 🔥 Live round leaderboard (only completed contracts from current round)
-    live_leaderboard = (
+    live_leaderboard_query = (
         db.session.query(Player.username, db.func.count(Contract.id))
         .join(Contract, Player.id == Contract.assassin_id)
         .filter(Contract.status == "complete")
-        .filter(Contract.round == current_round.id if current_round else -1)
+    )
+
+    if current_round:
+        live_leaderboard_query = live_leaderboard_query.filter(Contract.round == current_round.id)
+    else:
+        live_leaderboard_query = live_leaderboard_query.filter(False)  # return nothing
+
+    live_leaderboard = (
+        live_leaderboard_query
         .group_by(Player.username)
         .order_by(db.func.count(Contract.id).desc())
         .all()
     )
 
-    # 🏅 All-time most completed contracts
     most_completions = (
         db.session.query(Player.username, db.func.count(Contract.id).label("total"))
         .join(Contract, Player.id == Contract.assassin_id)
@@ -712,7 +713,6 @@ def leaderboard():
         .all()
     )
 
-    # 💀 All-time most eliminations (target of completed contracts)
     most_eliminated = (
         db.session.query(Player.username, db.func.count(Contract.id).label("elims"))
         .join(Contract, Player.id == Contract.target_id)
@@ -731,6 +731,7 @@ def leaderboard():
         most_eliminated=most_eliminated,
         message=message
     )
+
 
 
 
