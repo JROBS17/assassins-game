@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>📜 Game Rules</h1>
-<p>{{ rules.content if rules else "No rules have been set yet." }}</p>
+<div class="rules-box">
+  {{ rules.content | safe if rules else "No rules have been set yet." }}
+</div>
 {% endblock %}
