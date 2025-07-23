@@ -8,6 +8,7 @@
 <table border="1" class="admin-table">
   <tr>
     <th>Username</th>
+    <th>Email</th>
     <th>Status</th>
     <th>Admin</th>
     <th>Actions</th>
@@ -15,6 +16,7 @@
   {% for player in players %}
   <tr>
     <td>{{ player.username }}</td>
+    <td>{{ player.email }}</td>
     <td>{{ player.status }}</td>
     <td>
       <form method="POST" action="{{ url_for('routes.toggle_admin') }}">
