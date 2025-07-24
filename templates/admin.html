@@ -5,38 +5,61 @@
 
 
 <h3>Players</h3>
+
+<label>
+  <input type="checkbox" id="enable-delete"> ⚠️ Enable Player Removal
+</label>
+
 <table border="1" class="admin-table">
   <tr>
-    <th>Username</th>
-    <th>Email</th>
-    <th>Status</th>
-    <th>Admin</th>
-    <th>Actions</th>
-  </tr>
-  {% for player in players %}
-  <tr>
-    <td>{{ player.username }}</td>
-    <td>{{ player.email }}</td>
-    <td>{{ player.status }}</td>
-    <td>
-      <form method="POST" action="{{ url_for('routes.toggle_admin') }}">
-        <input type="hidden" name="player_id" value="{{ player.id }}">
-        <input type="checkbox" name="is_admin"
-               onchange="this.form.submit()" {% if player.is_admin %}checked{% endif %}
-               {% if player.id == current_user.id %}disabled{% endif %}>
-      </form>
-    </td>
-    <td>
-      <form method="POST" action="{{ url_for('routes.toggle_player_status') }}">
-        <input type="hidden" name="player_id" value="{{ player.id }}">
-        <button type="submit">
-          {{ 'Reactivate' if player.status == 'suspended' else 'Suspend' }}
-        </button>
-      </form>
-    </td>
-  </tr>
-  {% endfor %}
+  <th>Username</th>
+  <th>Email</th>
+  <th>Status</th>
+  <th>Admin</th>
+  <th>Actions</th>
+  <th>Remove</th>  <!-- Already exists in your table header -->
+</tr>
+{% for player in players %}
+<tr>
+  <td>{{ player.username }}</td>
+  <td>{{ player.email }}</td>
+  <td>{{ player.status }}</td>
+  <td>
+    <form method="POST" action="{{ url_for('routes.toggle_admin') }}">
+      <input type="hidden" name="player_id" value="{{ player.id }}">
+      <input type="checkbox" name="is_admin"
+             onchange="this.form.submit()" {% if player.is_admin %}checked{% endif %}
+             {% if player.id == current_user.id %}disabled{% endif %}>
+    </form>
+  </td>
+  <td>
+    <form method="POST" action="{{ url_for('routes.toggle_player_status') }}">
+      <input type="hidden" name="player_id" value="{{ player.id }}">
+      <button type="submit">
+        {{ 'Reactivate' if player.status == 'suspended' else 'Suspend' }}
+      </button>
+    </form>
+  </td>
+  <td>
+    <form method="POST" action="{{ url_for('routes.delete_player', player_id=player.id) }}" class="delete-form">
+      <button type="submit" class="delete-btn" disabled onclick="return confirm('Are you sure you want to remove {{ player.username }}?')">
+        ❌ Remove
+      </button>
+    </form>
+  </td>
+</tr>
+{% endfor %}
+
 </table>
+
+<script>
+  document.getElementById('enable-delete').addEventListener('change', function () {
+    const enabled = this.checked;
+    document.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.disabled = !enabled;
+    });
+  });
+</script>
 
 
 <h3>Player Rules</h3>

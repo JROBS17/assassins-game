@@ -13,11 +13,12 @@
   <nav class="main-nav">
     <a href="{{ url_for('routes.dashboard') }}"> Secret Lair</a>
     <a href="{{ url_for('routes.leaderboard') }}"> Cantina</a>
-    <a href="{{ url_for('routes.rules_page') }}">Assasians Code</a>
+    <a href="{{ url_for('routes.rules_page') }}">Assassians Code</a>
     {% if current_user.is_authenticated and current_user.is_admin %}
       <a href="{{ url_for('routes.admin_panel') }}">🛠 Admin</a>
     {% endif %}
     {% if current_user.is_authenticated %}
+      <a href="{{ url_for('routes.edit_profile') }}">Outfit Change</a>
       <a href="{{ url_for('auth.logout') }}">Retire </a>
     {% endif %}
   </nav>

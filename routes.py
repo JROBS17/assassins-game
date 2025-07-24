@@ -834,3 +834,54 @@ def reset_with_token(token):
         return redirect(url_for("auth.login"))
 
     return render_template("reset_password.html")
+
+from flask import render_template, redirect, url_for, flash, request
+from flask_login import login_required, current_user
+from werkzeug.utils import secure_filename
+import os
+from extensions import db
+from models import Player
+from config import Config
+
+@routes_bp.route("/profile/edit", methods=["GET", "POST"])
+@login_required
+def edit_profile():
+    if request.method == "POST":
+        username = request.form.get("username")
+        email = request.form.get("email")
+        profile_pic = request.files.get("profile_pic")
+
+        if username:
+            current_user.username = username
+
+        if email:
+            current_user.email = email
+
+        if profile_pic:
+            filename = secure_filename(profile_pic.filename)
+            filepath = os.path.join(Config.UPLOAD_FOLDER, filename)
+            profile_pic.save(filepath)
+            current_user.profile_pic = filename
+
+        db.session.commit()
+        flash("Profile updated successfully!", "success")
+        return redirect(url_for("routes.edit_profile"))
+
+    return render_template("edit_profile.html", user=current_user)
+
+@routes_bp.route('/admin/delete_player/<int:player_id>', methods=['POST'])
+@login_required
+def delete_player(player_id):
+    player = Player.query.get_or_404(player_id)
+
+    # Optional: prevent deletion of yourself or other admins
+    if player.id == current_user.id:
+        flash("You cannot delete yourself.", "warning")
+        return redirect(url_for("routes.admin_panel"))
+
+    db.session.delete(player)
+    db.session.commit()
+    flash(f"{player.username} has been deleted.", "success")
+    return redirect(url_for("routes.admin_panel"))  # ✅ Make sure this matches your admin panel route
+
+
