@@ -17,6 +17,7 @@
   <th>Status</th>
   <th>Admin</th>
   <th>Actions</th>
+  <th>ID</th>
   <th>Remove</th>  <!-- Already exists in your table header -->
 </tr>
 {% for player in players %}
@@ -24,6 +25,7 @@
   <td>{{ player.username }}</td>
   <td>{{ player.email }}</td>
   <td>{{ player.status }}</td>
+  <td>{{ player.id }}</td>
   <td>
     <form method="POST" action="{{ url_for('routes.toggle_admin') }}">
       <input type="hidden" name="player_id" value="{{ player.id }}">
