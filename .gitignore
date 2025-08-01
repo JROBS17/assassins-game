@@ -1,0 +1,26 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+venv/
+.env
+
+# Environment settings
+.env
+.flaskenv
+
+# DB files (if you're not using them directly)
+*.sqlite3
+*.db
+
+# Flask-Migrate cache
+migrations/versions/__pycache__/
+
+# VS Code or other editor junk
+.vscode/
+*.swp
+
+# Logs
+*.log
