@@ -13,7 +13,7 @@
   <nav class="main-nav">
     <a href="{{ url_for('routes.dashboard') }}"> Secret Lair</a>
     <a href="{{ url_for('routes.leaderboard') }}"> Cantina</a>
-    <a href="{{ url_for('routes.rules_page') }}">Assassians Code</a>
+    <a href="{{ url_for('routes.rules_page') }}">Assassins Code</a>
     {% if current_user.is_authenticated and current_user.is_admin %}
       <a href="{{ url_for('routes.admin_panel') }}">🛠 Admin</a>
     {% endif %}

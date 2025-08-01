@@ -20,7 +20,8 @@ class Player(UserMixin, db.Model):
     max_times_targeted = db.Column(db.Integer, default=1)
     can_have_multiple_contracts = db.Column(db.Boolean, default=False)
     max_contracts_per_round = db.Column(db.Integer, default=1)
-
+    untouchable_count = db.Column(db.Integer, default=0)
+    times_kia = db.Column(db.Integer, default=0)  
 
 
 class Contract(db.Model):
@@ -39,6 +40,9 @@ class Settings(db.Model):
     repeat_target_delay = db.Column(db.Integer, default=1)
     current_round = db.Column(db.Integer, default=1)
     auto_start_next_round = db.Column(db.Boolean, default=False)
+    auto_start_delay_hours = db.Column(db.Integer, default=0) 
+    next_round_start_time = db.Column(db.DateTime, nullable=True)
+
 
 class Notification(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -73,3 +77,14 @@ class MessageBoard(db.Model):
 class GameRules(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.Text, nullable=False)
+
+
+class Message(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    author_id = db.Column(db.Integer, db.ForeignKey("player.id"), nullable=False)
+    target_id = db.Column(db.Integer, db.ForeignKey("player.id"), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    author = db.relationship("Player", foreign_keys=[author_id], backref="sent_messages")
+    target = db.relationship("Player", foreign_keys=[target_id], backref="received_messages")

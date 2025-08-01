@@ -3,34 +3,117 @@ from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from flask import flash
 from extensions import db
-from models import Contract, Player, Notification, Settings, Round
+from models import Contract, Player, Notification, Settings, Round, Message
 from notification_utils import send_notification
 from models import Score, Player
 from extensions import mail
 from werkzeug.security import generate_password_hash
 from werkzeug.security import check_password_hash
-
+from datetime import datetime, timedelta
 
 
 import os
 
 routes_bp = Blueprint('routes', __name__)
 
+from datetime import datetime
+from models import Round, Contract, Settings, Score, Player
+
+def expire_old_round():
+    """If the active round's end_time has passed, end it: expire contracts, log scores, advance/auto-start."""
+    current = Round.query.filter_by(is_active=True).first()
+    if not current or current.end_time > datetime.utcnow():
+        return  # nothing to do
+
+    # mark round as over
+    current.is_active = False
+    current.end_time = datetime.utcnow()
+
+    # expire any still-assigned contracts
+    Contract.query.filter(Contract.status=="assigned").update({"status": "expired"})
+
+    # record scores
+    settings = Settings.query.first()
+    round_num = settings.current_round if settings else 1
+    for p in Player.query.all():
+        completed = Contract.query.filter_by(assassin_id=p.id, round=round_num, status="complete").count()
+        expired   = Contract.query.filter_by(assassin_id=p.id, round=round_num, status="expired").count()
+        eliminated= Contract.query.filter_by(target_id= p.id, round=round_num, status="complete").count()
+        db.session.add(Score(
+            player_id=p.id,
+            round_number=round_num,
+            completed_contracts=completed,
+            unfinished_contracts=expired,
+            eliminations=eliminated
+        ))
+
+    # advance settings.current_round and auto-start if desired
+    if settings:
+        if settings.auto_start_next_round:
+            settings.current_round += 1
+            # you could immediately create the next Round here,
+            # or rely on your existing start_round() to be called somewhere else
+        db.session.add(settings)
+
+    db.session.commit()
+
 
 @routes_bp.route("/")
 @login_required
 def dashboard():
-    contracts = Contract.query.filter_by(assassin_id=current_user.id, status="assigned").all()
+    expire_old_round() 
+
+    # ❗️Check if current user is being verified (i.e., was tagged)
+    is_current_user_being_verified = Contract.query.filter_by(target_id=current_user.id, status="verifying").first()
+
+    # ❗️Only show contracts if user is not under verification
+    contracts = []
+    if not is_current_user_being_verified:
+        contracts = Contract.query.filter_by(assassin_id=current_user.id, status="assigned").all()
+
     verification_contracts = Contract.query.filter_by(target_id=current_user.id, status="verifying").all()
     notifications = Notification.query.filter_by(player_id=current_user.id).order_by(Notification.id.desc()).all()
+
+    # Get current round number from settings
+    settings = Settings.query.first()
+    current_round_number = settings.current_round if settings else None
+
+    # Determine if current user has any blocking contract in current round
+    is_current_user_locked = Contract.query.filter(
+        Contract.target_id == current_user.id,
+        Contract.round == current_round_number,
+        Contract.status.in_(["verifying"])
+    ).first() is not None
+
+
 
     current_round = Round.query.filter_by(is_active=True).first()
     round_end_time = current_round.end_time if current_round else None
 
-    # 🔄 Calculate score totals based on contract history
+    settings = Settings.query.first()
+    if (
+        settings and
+        settings.auto_start_next_round and
+        settings.next_round_start_time and
+        datetime.utcnow() >= settings.next_round_start_time
+    ):
+        start_round()  # This should be your existing round-starting function
+        settings.next_round_start_time = None
+        db.session.commit()
+        flash("Next round auto-started.")
+
     total_completed = Contract.query.filter_by(assassin_id=current_user.id, status="complete").count()
     total_unfinished = Contract.query.filter_by(assassin_id=current_user.id, status="expired").count()
     total_eliminated = Contract.query.filter_by(target_id=current_user.id, status="complete").count()
+    kia_count = Contract.query.filter_by(assassin_id=current_user.id, status="KIA").count()
+ 
+    recent_profile_messages = (
+        Message.query
+        .filter_by(target_id=current_user.id)
+        .order_by(Message.timestamp.desc())
+        .limit(10)
+        .all()
+    )
 
     return render_template(
         "home.html",
@@ -41,8 +124,18 @@ def dashboard():
         total_completed=total_completed,
         total_unfinished=total_unfinished,
         total_eliminated=total_eliminated,
-        round_end_time=current_round.end_time if current_round else None
+        round_end_time=round_end_time,
+        kia_pending_contracts=Contract.query.filter_by(assassin_id=current_user.id, status="kia_pending").all(),
+        active_players=Player.query.filter_by(status="active").all(),
+        recent_profile_messages=recent_profile_messages,
+        is_user_being_verified=bool(is_current_user_being_verified),
+        is_current_user_locked=is_current_user_locked,
+        kia_count=kia_count
+
     )
+
+
+
 
 
 @routes_bp.route("/complete_contract/<int:contract_id>", methods=["POST"])
@@ -54,7 +147,7 @@ def complete_contract(contract_id):
         contract.status = "verifying"
 
         # 🔔 Notify the target that a tag needs their review
-        send_notification(contract.target_id, "🕵️ A tag has been submitted. Please confirm or dispute it.")
+        send_notification(contract.target_id, "An Assassination has been submitted. Please confirm or dispute it.")
 
         db.session.commit()
 
@@ -72,7 +165,7 @@ def confirm_tag(contract_id):
 
         if action == "confirm":
             contract.status = "complete"
-            send_notification(contract.assassin_id, "✅ Your tag was confirmed!")
+            send_notification(contract.assassin_id, " Your tag was confirmed!")
             send_notification(contract.target_id, "You were tagged and confirmed.")
 
             # 🔔 Notify admins
@@ -299,6 +392,8 @@ def update_settings():
         settings.repeat_target_delay = int(request.form.get("repeat_target_delay", 1))
         settings.current_round = int(request.form.get("current_round", 1))
         settings.auto_start_next_round = "auto_start_next_round" in request.form
+        settings.auto_start_delay_hours = int(request.form.get("auto_start_delay_hours", 0))
+    
     except ValueError:
         flash("Invalid values entered. Please use numbers.")
         return redirect(url_for("routes.admin_panel"))
@@ -343,103 +438,6 @@ def reset_round():
     return redirect(url_for("routes.admin_panel"))
 
 
-
-
-
-'''
-@routes_bp.route("/randomize_contracts", methods=["POST"])
-@login_required
-def randomize_contracts():
-    if not current_user.is_admin:
-        return "Unauthorized", 403
-
-    from models import Player, Contract, Settings
-    import random
-
-    # Clear previous contracts
-    Contract.query.delete()
-
-    players = Player.query.filter_by(status="active").all()
-    if len(players) < 2:
-        flash("Not enough players to assign contracts.")
-        return redirect(url_for("routes.admin_panel"))
-
-    # Load settings
-    settings = Settings.query.first()
-    current_round = settings.current_round if settings else 1
-    repeat_delay = settings.repeat_target_delay if settings else 1
-
-    remaining_targets = {}
-    for p in players:
-        if p.can_be_targeted_multiple_times:
-            remaining_targets[p.id] = max(p.max_times_targeted, 0)
-        else:
-            remaining_targets[p.id] = 1 if p.max_times_targeted != 0 else 0
-
-    contracts = []
-
-    for assassin in players:
-        # Skip assassins not allowed to have contracts
-        if (
-            (not assassin.can_have_multiple_contracts and assassin.max_contracts_per_round == 0)
-            or assassin.max_contracts_per_round == 0
-        ):
-            continue
-
-        max_contracts = (
-            assassin.max_contracts_per_round if assassin.can_have_multiple_contracts else 1
-        )
-
-        # Get recent targets for this assassin
-        recent_target_ids = set()
-        if repeat_delay > 0:
-            recent_contracts = Contract.query.filter(
-                Contract.assassin_id == assassin.id,
-                Contract.round >= current_round - repeat_delay
-            ).all()
-            recent_target_ids = {c.target_id for c in recent_contracts}
-
-        # Build list of possible targets
-        possible_targets = [
-            p for p in players
-            if p.id != assassin.id
-            and remaining_targets.get(p.id, 0) > 0
-            and (
-                (p.can_be_targeted_multiple_times and p.max_times_targeted > 0)
-                or (not p.can_be_targeted_multiple_times and p.max_times_targeted != 0)
-            )
-            and (repeat_delay == 0 or p.id not in recent_target_ids)
-        ]
-
-        random.shuffle(possible_targets)
-        count = 0
-
-        for target in possible_targets:
-            if count >= max_contracts:
-                break
-
-            contracts.append(Contract(
-                assassin_id=assassin.id,
-                target_id=target.id,
-                round=current_round,
-                status="assigned"
-            ))
-            remaining_targets[target.id] -= 1
-            count += 1
-
-    for contract in contracts:
-        db.session.add(contract)
-
-    # Advance round
-    if settings:
-        settings.current_round = current_round + 1
-        db.session.add(settings)
-
-    db.session.commit()
-    flash(f"{len(contracts)} contracts assigned successfully.")
-    return redirect(url_for("routes.admin_panel"))
-
-'''
 
 @routes_bp.route("/qr")
 @login_required
@@ -521,6 +519,9 @@ def start_round():
     duration = settings.round_duration or 72
     now = datetime.utcnow()
 
+    from models import Notification
+    Notification.query.delete()
+    
     new_round = Round(
         start_time=now,
         end_time=now + timedelta(hours=duration),
@@ -607,7 +608,8 @@ def end_round():
         return "Unauthorized", 403
 
     from models import Round, Contract, Settings, Score, Player
-    from datetime import datetime
+    from datetime import datetime, timedelta
+    import time
 
     current_round = Round.query.filter_by(is_active=True).first()
     if not current_round:
@@ -658,11 +660,17 @@ def end_round():
     db.session.commit()
     flash("Round ended. Contracts expired. Scores logged.")
 
-    # Auto-start logic
+    
+ # Auto-start logic
     if settings and settings.auto_start_next_round:
-        flash("Auto-starting next round...")
-        return redirect(url_for("routes.start_round"))  # Use start_round, not randomize_contracts
-
+        delay_hours = settings.auto_start_delay_hours or 0
+        if delay_hours > 0:
+            flash(f"Next round will start in {delay_hours} hour(s)...")
+            settings.next_round_start_time = datetime.utcnow() + timedelta(hours=delay_hours)
+            db.session.commit()
+        else: 
+            start_round()
+            flash("Next round auto-started.")
     return redirect(url_for("routes.admin_panel"))
 
 
@@ -681,10 +689,21 @@ def view_all_contracts():
 @login_required
 def leaderboard():
     from models import Contract, Player, Round, Settings, MessageBoard
+    from sqlalchemy import or_
 
     current_round = Round.query.filter_by(is_active=True).first()
+    round_end_time = current_round.end_time if current_round else None
     message = MessageBoard.query.order_by(MessageBoard.id.desc()).first()
+    untouchables = (
+    db.session.query(Player.username, Player.untouchable_count)
+    .filter(Player.untouchable_count > 0)
+    .order_by(Player.untouchable_count.desc())
+    .limit(5)
+    .all()
+)
 
+
+    # 🔥 LIVE Leaderboard: Completed contracts for current round
     live_leaderboard_query = (
         db.session.query(Player.username, db.func.count(Contract.id))
         .join(Contract, Player.id == Contract.assassin_id)
@@ -694,7 +713,7 @@ def leaderboard():
     if current_round:
         live_leaderboard_query = live_leaderboard_query.filter(Contract.round == current_round.id)
     else:
-        live_leaderboard_query = live_leaderboard_query.filter(False)  # return nothing
+        live_leaderboard_query = live_leaderboard_query.filter(False)
 
     live_leaderboard = (
         live_leaderboard_query
@@ -703,6 +722,7 @@ def leaderboard():
         .all()
     )
 
+    # 🏆 Overall stats
     most_completions = (
         db.session.query(Player.username, db.func.count(Contract.id).label("total"))
         .join(Contract, Player.id == Contract.assassin_id)
@@ -723,15 +743,30 @@ def leaderboard():
         .all()
     )
 
+    # 📜 Live Killfeed: Show KIA and Complete for this round
+    live_killfeed = []
+    if current_round:
+        live_killfeed = (
+            Contract.query
+            .filter(
+                Contract.round == current_round.id,
+                Contract.status.in_(["complete", "KIA"])
+            )
+            .order_by(Contract.id.desc())
+            .all()
+        )
+
     return render_template(
         "leaderboard.html",
         current_round=current_round,
         live_leaderboard=live_leaderboard,
         overall_leaderboard=most_completions,
         most_eliminated=most_eliminated,
-        message=message
+        message=message,
+        live_killfeed=live_killfeed,  # ✅ Pass to template
+        untouchables=untouchables,  # ✅ new
+        round_end_time=round_end_time
     )
-
 
 
 
@@ -780,7 +815,7 @@ def update_rules():
     return redirect(url_for("routes.admin_panel"))
 
 
-from flask_mail import Message
+from flask_mail import Message as MailMessage
 from flask import current_app, url_for
 from itsdangerous import URLSafeTimedSerializer
 from models import Player
@@ -790,7 +825,7 @@ def send_reset_email(user):
     token = serializer.dumps(user.email, salt='password-reset')
 
     reset_url = url_for('routes.reset_with_token', token=token, _external=True)
-    msg = Message('Password Reset Request',
+    msg = MailMessage('Password Reset Request',
                   recipients=[user.email])
     msg.body = f"""Hello {user.username},
 
@@ -869,19 +904,235 @@ def edit_profile():
 
     return render_template("edit_profile.html", user=current_user)
 
-@routes_bp.route('/admin/delete_player/<int:player_id>', methods=['POST'])
+@routes_bp.route("/admin/delete_player/<int:player_id>", methods=["POST"])
 @login_required
 def delete_player(player_id):
+    if not current_user.is_admin:
+        abort(403)
+
     player = Player.query.get_or_404(player_id)
 
-    # Optional: prevent deletion of yourself or other admins
     if player.id == current_user.id:
-        flash("You cannot delete yourself.", "warning")
+        flash("You cannot delete your own account.")
         return redirect(url_for("routes.admin_panel"))
 
+    # Delete related messages
+    db.session.query(Message).filter_by(author_id=player.id).delete()
+
+    # Delete related contracts
+    Contract.query.filter(
+        (Contract.assassin_id == player.id) | (Contract.target_id == player.id)
+    ).delete()
+
+    # Now delete the player
     db.session.delete(player)
     db.session.commit()
-    flash(f"{player.username} has been deleted.", "success")
-    return redirect(url_for("routes.admin_panel"))  # ✅ Make sure this matches your admin panel route
+    flash(f"Player {player.username} has been deleted.")
+    return redirect(url_for("routes.admin_panel"))
 
 
+
+@routes_bp.route('/profile/<username>')
+@login_required
+def player_profile(username):
+    from models import Player, Contract, Message
+    from sqlalchemy import desc
+
+    player = Player.query.filter_by(username=username).first_or_404()
+
+    total_completed = Contract.query.filter_by(assassin_id=current_user.id, status="complete").count()
+    total_unfinished = Contract.query.filter_by(assassin_id=current_user.id, status="expired").count()
+    total_eliminated = Contract.query.filter_by(target_id=current_user.id, status="complete").count()
+    kia_count = Contract.query.filter_by(assassin_id=current_user.id, status="KIA").count()
+
+    # Handle message view toggle
+    show_all = request.args.get("show_all") == "1"
+
+    all_messages_query = Message.query.filter_by(target_id=player.id).order_by(desc(Message.timestamp))
+    
+    # Enforce storage limit of 100 messages
+    all_messages = all_messages_query.all()
+    if len(all_messages) > 100:
+        for msg in all_messages[100:]:  # prune oldest
+            db.session.delete(msg)
+        db.session.commit()
+
+    # Only show 10 if not toggled
+    messages = all_messages[:10] if not show_all else all_messages[:100]  # max display 100
+
+    return render_template(
+        "player_profile.html",
+        player=player,
+        messages=messages,
+        message_count=len(all_messages),
+        show_all=show_all,
+        total_completed=total_completed,
+        total_unfinished=total_unfinished,
+        total_eliminated=total_eliminated,
+        kia_count=kia_count
+
+    )
+
+
+@routes_bp.route('/leave_message', methods=["POST"])
+@login_required
+def leave_message():
+    from models import Message
+    target_id = request.form["target_id"]
+    content = request.form["message_text"]
+
+    message = Message(author_id=current_user.id, target_id=target_id, content=content)
+    db.session.add(message)
+    db.session.commit()
+
+    return redirect(request.referrer or url_for("routes.index"))
+
+
+@routes_bp.route("/admin/resolve_disputes", methods=["POST"])
+@login_required
+def resolve_disputes():
+    if not current_user.is_admin:
+        return "Unauthorized", 403
+
+    from models import Contract
+
+    disputed_contracts = Contract.query.filter_by(status="disputed").all()
+
+    for contract in disputed_contracts:
+        # Reactivate the disputed contract
+        contract.status = "assigned"
+
+        # 🛠 Reactivate the target's own contract if it was expired
+        target_contract = Contract.query.filter_by(
+            assassin_id=contract.target_id,
+            round=contract.round,
+            status="expired"
+        ).first()
+
+        if target_contract:
+            target_contract.status = "assigned"
+
+    db.session.commit()
+    flash("All disputed contracts have been resolved and reactivated.")
+    return redirect(url_for("routes.admin_panel"))
+
+@routes_bp.route("/submit_kia", methods=["POST"])
+@login_required
+def submit_kia():
+    from models import Contract, Player
+    from sqlalchemy import or_
+    from notification_utils import send_notification  
+    
+    suspect_id = int(request.form.get("suspect_id"))
+
+    # Look for an assigned contract where the suspect is the assassin and current_user is the target
+    contract = Contract.query.filter_by(
+        assassin_id=suspect_id,
+        target_id=current_user.id,
+        status="assigned"
+    ).first()
+
+    if not contract:
+        flash("Verifying...")
+        return redirect(url_for("routes.dashboard"))
+
+    # 🔁 Instead of marking KIA immediately, set to pending
+    contract.status = "kia_pending"
+
+    # 🔔 Notify the assassin to verify or dispute
+    send_notification(
+        contract.assassin_id,
+        f" You've been reported KIA by {current_user.username}. Please confirm or dispute."
+    )
+
+    db.session.commit()
+    flash("Verifying...")
+    return redirect(url_for("routes.dashboard"))
+
+
+
+@routes_bp.route("/kia_review")
+@login_required
+def kia_review():
+    contracts = Contract.query.filter_by(assassin_id=current_user.id, status="kia_pending").all()
+    return render_template("kia_review.html", contracts=contracts)
+
+@routes_bp.route("/confirm_kia/<int:contract_id>", methods=["POST"])
+@login_required
+def confirm_kia(contract_id):
+    from notification_utils import send_notification 
+
+    contract = Contract.query.get_or_404(contract_id)
+
+    if contract.assassin_id != current_user.id or contract.status != "kia_pending":
+        flash("You are not authorized to review this KIA.")
+        return redirect(url_for("routes.dashboard"))
+
+    action = request.form.get("action")
+
+    if action == "confirm":
+        contract.status = "KIA"
+
+        from sqlalchemy import or_
+        related = Contract.query.filter(
+            or_(
+                Contract.assassin_id == current_user.id,
+                Contract.target_id == current_user.id
+            ),
+            Contract.round == contract.round,
+            Contract.status == "assigned"
+        ).all()
+
+        for c in related:
+            if c.id != contract.id:
+                c.status = "expired"
+
+        contract.target.untouchable_count += 1
+        # Notify target before commit
+        send_notification(contract.target_id, "Your KIA was CONFIRMED.")        
+
+        # Note: untouchable_count increment should have occurred in submit_kia()
+        db.session.commit()
+        flash("You have been Killed in action. You're out for this round.")
+        
+
+    elif action == "dispute":
+        contract.status = "kia_disputed"
+        db.session.commit()
+
+        # Notify the target
+        from notification_utils import send_notification
+        send_notification(contract.target_id, " Your KIA claim was DISPUTED.")
+
+        # Notify admins
+        admins = Player.query.filter_by(is_admin=True).all()
+        for admin in admins:
+            send_notification(admin.id, f"KIA dispute: {contract.assassin.username} denied {contract.target.username}'s claim.")
+
+        flash("You disputed the KIA. An admin will review.")
+
+    return redirect(url_for("routes.dashboard"))
+
+@routes_bp.route("/admin/resolve_kia_disputes", methods=["POST"])
+@login_required
+def resolve_kia_disputes():
+    if not current_user.is_admin:
+        return "Unauthorized", 403
+
+    from models import Contract
+    from sqlalchemy import or_
+
+    kia_disputed_contracts = Contract.query.filter_by(status="kia_disputed").all()
+
+    for contract in kia_disputed_contracts:
+        # ✅ Default behavior: reject KIA, restore contract to "assigned"
+        contract.status = "assigned"
+
+        # Optionally notify the involved players
+        from notification_utils import send_notification
+        send_notification(contract.target_id, f"Your KIA claim on {contract.assassin.username} was denied.")
+        send_notification(contract.assassin_id, "You have been cleared. KIA claim was rejected.")
+
+    db.session.commit()
+    flash("All KIA disputes reviewed. Disputed contracts reset to 'assigned'.")
+    return redirect(url_for("routes.admin_panel"))

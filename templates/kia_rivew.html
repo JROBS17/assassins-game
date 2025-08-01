@@ -1,0 +1,10 @@
+<h3>Confirm or Dispute KIA Claims</h3>
+{% for contract in contracts %}
+  <div class="kia-box">
+    <p>{{ contract.target.username }} Foiled your plot and has marked you as KIA. Cnfirmed or Disputed?</p>
+    <form method="POST" action="{{ url_for('routes.confirm_kia', contract_id=contract.id) }}">
+      <button type="submit" name="action" value="confirm">✅ Confirm</button>
+      <button type="submit" name="action" value="dispute">❌ Dispute</button>
+    </form>
+  </div>
+{% endfor %}

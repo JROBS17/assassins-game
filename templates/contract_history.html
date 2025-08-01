@@ -32,7 +32,10 @@
                 <option value="complete" {% if contract.status == 'complete' %}selected{% endif %}>complete</option>
                 <option value="expired" {% if contract.status == 'expired' %}selected{% endif %}>expired</option>
                 <option value="disputed" {% if contract.status == 'disputed' %}selected{% endif %}>disputed</option>
-              </select>
+                <option value="kia_pending"  {% if contract.status == 'kia_pending' %}selected{% endif %}>KIA Pending</option>
+                <option value="KIA"          {% if contract.status == 'KIA' %}selected{% endif %}>KIA</option>
+                <option value="kia_disputed" {% if contract.status == 'kia_disputed' %}selected{% endif %}>KIA Disputed</option>
+            </select>
               <button type="submit">Update</button>
             </form>
           </td>

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ player.username }}'s Profile</h2>
+
+<div style="display: flex; gap: 2rem; flex-wrap: wrap; align-items: flex-start;">
+
+  <!-- LEFT COLUMN -->
+  <div style="flex: 1; min-width: 280px;">
+    <!-- Profile Picture -->
+    {% if player.profile_pic %}
+      <img src="{{ url_for('static', filename='uploads/' ~ player.profile_pic) }}"
+           alt="Profile Picture"
+           style="width: 100%; max-width: 250px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.2);">
+    {% else %}
+      <p><em>No profile picture uploaded.</em></p>
+    {% endif %}
+
+    <!-- Stats -->
+    <h3> Career Stats</h3>
+    <ul>
+      <li>Tags Completed: {{ total_completed }}</li>
+      <li>Expired Contracts: {{ total_unfinished }}</li>
+      <li>Times Eliminated: {{ total_eliminated }}</li>
+      <li>Times Untouchable: {{ player.untouchable_count }}</li>
+      <li>KIA Count: {{ kia_count }}</li>
+    </ul>
+
+    <!-- Bio -->
+    <h3> Bio Board</h3>
+    
+  </div>
+
+ <!-- RIGHT COLUMN -->
+<div style="flex: 2; min-width: 300px;">
+  <div class="terminal-box">
+    <h3> Messages</h3>
+
+    <!-- Message Form -->
+    <form method="POST" action="{{ url_for('routes.leave_message') }}">
+      <input type="hidden" name="target_id" value="{{ player.id }}">
+      <textarea name="message_text" rows="3" style="width: 100%;" placeholder="Leave a message..."></textarea><br>
+      <button type="submit">Post</button>
+    </form>
+
+    <!-- Message List -->
+    <ul style="list-style: none; padding: 0; margin-top: 1rem;">
+      {% for message in messages %}
+        <li class="message-entry">
+          <strong>{{ message.author.username }}</strong>: {{ message.content }}
+          <small style="color: gray; font-size: 0.75rem;">({{ message.timestamp.strftime('%b %d %H:%M') }})</small>
+        </li>
+      {% else %}
+        <li><em>No messages yet. Be the first to leave one!</em></li>
+      {% endfor %}
+    </ul>
+
+    {% if not show_all and message_count > 10 %}
+      <form method="GET" action="{{ url_for('routes.player_profile', username=player.username) }}">
+        <input type="hidden" name="show_all" value="1">
+        <button type="submit" style="margin-top: 0.5rem;">View All Messages</button>
+      </form>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

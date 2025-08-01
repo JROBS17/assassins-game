@@ -6,67 +6,88 @@
 
   <!-- LEFT SIDE -->
   <div class="leader-left">
-    {% if current_round %}
-      <div class="terminal-box">
-        <strong></strong>
-        <span id="countdown" class="terminal-text"></span>
-      </div>
-      <script>
-        const endTime = new Date("{{ current_round.end_time.isoformat() }}Z").getTime();
+<!-- Round Timer -->
+  {% if round_end_time %}
+    <div id="round-timer" class="round-timer-box-lead box-normal">
+      <span id="countdown" class="countdown-text"></span>
+    </div>
+
+    <script>
+      const endTime = new Date("{{ round_end_time.isoformat() }}Z").getTime();
+
+      function updateCountdown() {
+        const now = new Date().getTime();
+        const distance = endTime - now;
+
         const countdownEl = document.getElementById("countdown");
+        const timerBox = document.getElementById("round-timer");
 
-        const timer = setInterval(() => {
-          const now = new Date().getTime();
-          const distance = endTime - now;
+        if (distance <= 0) {
+          countdownEl.innerHTML = "Round has ended";
+          timerBox.className = "round-timer-box-lead box-ended";
+          clearInterval(timerInterval);
+          return;
+        }
 
-          if (distance < 0) {
-            clearInterval(timer);
-            countdownEl.innerText = "Round ended";
-            return;
-          }
+        const days = Math.floor(distance / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
-          const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-          const hrs = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-          const mins = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-          const secs = Math.floor((distance % (1000 * 60)) / 1000);
+        countdownEl.innerHTML = `${days}d ${hours}h ${minutes}m ${seconds}s`;
 
-          let display = "";
-          if (days > 0) display += `${days}d `;
-          display += `${hrs}h ${mins}m ${secs}s`;
+        timerBox.className = "round-timer-box-lead";
+        if (distance <= 1000 * 60 * 60) {
+          timerBox.classList.add("box-urgent");
+        } else if (distance <= 1000 * 60 * 60 * 12) {
+          timerBox.classList.add("box-warning");
+        } else {
+          timerBox.classList.add("box-normal");
+        }
+      }
 
-          countdownEl.innerText = display;
-        }, 1000);
-      </script>
-    {% endif %}
+      const timerInterval = setInterval(updateCountdown, 1000);
+      updateCountdown();
+    </script>
+  {% endif %}
+
+        <h2>Active Kill Log</h2>
+        <ul class="killfeed-list">
+            {% if live_killfeed %}
+             {% for contract in live_killfeed %}
+                <li class="{{ contract.status|lower }}">
+                 {% if contract.status == "complete" %}
+                  <a href="{{ url_for('routes.player_profile', username=contract.assassin.username) }}"><strong>{{ contract.assassin.username }}</strong></a> assassinated <a href="{{ url_for('routes.player_profile', username=contract.target.username) }}"><strong>{{ contract.target.username }}</strong></a>
+                 {% elif contract.status == "KIA" %}
+                  <a href="{{ url_for('routes.player_profile', username=contract.target.username) }}"><strong>{{ contract.target.username }}</strong></a> terminated <a href="{{ url_for('routes.player_profile', username=contract.assassin.username) }}"><strong>{{ contract.assassin.username }}</strong></a>
+                 {% endif %}
+                </li>
+            {% endfor %}
+        {% else %}
+            <li>No kills recorded yet this round.</li>
+         {% endif %}
+        </ul>
 
 
-    <h2>Active Kills</h2>
-    <table>
-      <tr><th>Player</th><th>Completed</th></tr>
-      {% for username, completed in live_leaderboard %}
-      <tr>
-        <td>{{ username }}</td>
-        <td>{{ completed }}</td>
-      </tr>
-      {% endfor %}
-    </table>
   </div>
 
   <!-- RIGHT SIDE -->
   <div class="leader-right">
-    <div class="terminal-box">
+    <div class="msg-box">
       <h2>Messages from HQ</h2>
-      <p>{{ message.content if message else "No messages posted." }}</p>
+      <pre class="terminal-text">
+      ... {{ message.content if message else "No messages posted." }}
+      </pre>
     </div>
 
     <div class="leader-grid">
       <div>
-        <h2>Top Assassians</h2>
+        <h2>Top Assassins</h2>
         <table>
           <tr><th>Player</th><th>Contracts</th></tr>
           {% for username, total in overall_leaderboard %}
           <tr>
-            <td>{{ username }}</td>
+            <td><a href="{{ url_for('routes.player_profile', username=username) }}">{{ username }}</a></td>
             <td>{{ total }}</td>
           </tr>
           {% endfor %}
@@ -79,14 +100,28 @@
           <tr><th>Player</th><th>Eliminations</th></tr>
           {% for username, elims in most_eliminated %}
           <tr>
-            <td>{{ username }}</td>
+            <td><a href="{{ url_for('routes.player_profile', username=username) }}">{{ username }}</a></td>
             <td>{{ elims }}</td>
           </tr>
           {% endfor %}
+        </table>
+      </div>
+
+      <div>
+        <h2>Untouchables</h2>
+        <table>
+         <tr><th>Player</th><th>KIA's</th></tr>
+          {% for username, count in untouchables %}
+         <tr>
+            <td><a href="{{ url_for('routes.player_profile', username=username) }}">{{ username }}</a></td>
+            <td>{{ count }}</td>
+         </tr>
+         {% endfor %}
         </table>
       </div>
     </div>
   </div>
 
 </div>
+
 {% endblock %}

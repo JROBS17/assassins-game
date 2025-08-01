@@ -1,56 +1,76 @@
 {% extends 'base.html' %}
 {% block content %}
 
+
 <div class="home-layout">
 
   <!-- Left Panel -->
   <div class="sidebar">
-    <h3>Agegnt {{ user.username }} Activated</h3>
+    <h3>Agent {{ user.username }} Activated</h3>
 
     {% if user.profile_pic %}
       <img src="{{ url_for('static', filename='uploads/' + user.profile_pic) }}" class="profile-pic">
     {% endif %}
 
-    <form method="POST" enctype="multipart/form-data" action="{{ url_for('routes.upload_profile_pic') }}">
-      <label for="pic">Upload Profile Picture:</label>
-      <input type="file" name="pic">
-      <button type="submit">Upload</button>
-    </form>
-
-    <hr>
 
     <h3>Career Stats</h3>
     <ul>
       <li>Tags Completed: {{ total_completed }}</li>
       <li>Expired Contracts: {{ total_unfinished }}</li>
       <li>Times Eliminated: {{ total_eliminated }}</li>
+      <li>Times Untouchable: {{ user.untouchable_count }}</li>
+      <li>KIA Count: {{ kia_count }}</li>
     </ul>
+    
+    <h3>Cryptic Warnings</h3>
+    <div class="msg-box">
+      
+      {% if recent_profile_messages %}
+        <ul class="msg-text">
+          {% for msg in recent_profile_messages %}
+            <li>
+              <div class="msg-content">
+                <a href="{{ url_for('routes.player_profile', username=msg.author.username ) }}"><strong>{{ msg.author.username }}</strong></a> {{ msg.content }} 
+              </div>
+              <div class="msg-timestamp">
+                {{ msg.timestamp.strftime('%Y/%m/%d %H:%M') }}
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+        <a href="{{ url_for('routes.player_profile', username=user.username) }}">View All Messages</a>
+      {% else %}
+        <p class="msg-text">No messages on your profile yet.</p>
+      {% endif %}
+    </div>
   </div>
 
+  
   <!-- Main Panel -->
   <div class="main-content">
 
 
        <!-- Notifications styled like a terminal -->
-    <div class="terminal-box">
-      <h3>Messages from HQ</h3>
+
+     <h3> HQ Notifications</h3>  
+    <div class="msg-box">
+      
       {% if notifications %}
         <pre class="terminal-text">
 {% for n in notifications %}
-[!] {{ n.message }}
+>>> {{ n.message }}
 {% endfor %}
         </pre>
       {% else %}
-        <pre class="terminal-text">[OK] No notifications.</pre>
+        <pre class="terminal-text">No notifications...</pre>
       {% endif %}
     </div>
 
 
-    <!--Round Timer-->
+    <!-- Round Timer -->
     {% if round_end_time %}
-      <div id="round-timer" class="terminal-box">
-        <span style="font-weight: bold;">Contract Deadline:</span>
-        <span id="countdown" class="terminal-text"></span>
+      <div id="round-timer" class="round-timer-box box-normal">
+        <span id="countdown" class="countdown-text"></span>
       </div>
 
       <script>
@@ -60,8 +80,31 @@
           const now = new Date().getTime();
           const distance = endTime - now;
 
+          const countdownEl = document.getElementById("countdown");
+          const timerBox = document.getElementById("round-timer");
+
           if (distance <= 0) {
-            document.getElementById("countdown").innerHTML = "⏰ Round has ended";
+            countdownEl.innerHTML = "Round has ended";
+            timerBox.className = "round-timer-box box-ended";
+
+            // 🔥 Automatically POST to /end_round (admin only)
+            {% if current_user.is_admin %}
+            fetch("/end_round", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "X-Requested-With": "XMLHttpRequest"  // useful for CSRF-free logic
+              },
+              credentials: "include"
+            }).then(response => {
+              if (response.ok) {
+                console.log("Round ended via timer.");
+                location.reload();  // Optionally refresh to reflect changes
+              } else {
+                console.error("Failed to end round.");
+              }
+            });
+            {% endif %}
             clearInterval(timerInterval);
             return;
           }
@@ -71,8 +114,17 @@
           const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
           const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
-          document.getElementById("countdown").innerHTML =
-            `${days}d ${hours}h ${minutes}m ${seconds}s`;
+          countdownEl.innerHTML = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+
+          // Reset then apply proper class
+          timerBox.className = "round-timer-box";
+          if (distance <= 1000 * 60 * 60) {
+            timerBox.classList.add("box-urgent");
+          } else if (distance <= 1000 * 60 * 60 * 12) {
+            timerBox.classList.add("box-warning");
+          } else {
+            timerBox.classList.add("box-normal");
+          }
         }
 
         const timerInterval = setInterval(updateCountdown, 1000);
@@ -80,45 +132,114 @@
       </script>
     {% endif %}
 
+
      <hr>
 
     <!-- Contracts -->
+
     {% if contracts %}
-      <h3>Your Targets:</h3>
+      <h3>Open Contracts:</h3>
       {% for contract in contracts %}
         <div class="contract-box">
-          <p><strong>{{ contract.target.username }}</strong></p>
-          {% if contract.target.profile_pic %}
-            <img src="{{ url_for('static', filename='uploads/' + contract.target.profile_pic) }}" width="100">
-          {% endif %}
-          <form method="POST" action="{{ url_for('routes.complete_contract', contract_id=contract.id) }}">
-            <button type="submit">Complete Contract</button>
-          </form>
+          <div class="contract-info">
+            <a href="{{ url_for('routes.player_profile', username=contract.target.username) }}">
+             {% if contract.target.profile_pic %} 
+              <img 
+                src="{{ url_for('static', filename='uploads/' + contract.target.profile_pic) }}" 
+                alt="{{ contract.target.username }}'s profile pic"
+                class="contract-pic"
+              >
+             {% endif %} 
+            </a>
+            <a 
+              href="{{ url_for('routes.player_profile', username=contract.target.username) }}" 
+              class="contract-name"
+            >
+              {{ contract.target.username }}
+            </a>
+          </div>
+          <div class="contract-action">
+            <form 
+              method="POST" 
+              action="{{ url_for('routes.complete_contract', contract_id=contract.id) }}" 
+              onsubmit="return confirm('Are you sure you want to complete this contract? This will mark the target as eliminated.')"
+            >
+              <button type="submit" class="contract-button">Complete Contract</button>
+            </form>
+          </div>
         </div>
       {% endfor %}
     {% else %}
-      <p>No active contracts assigned.</p>
+      <p>No active contracts assigned...</p>
     {% endif %}
 
-    <hr>
+    
 
-    <h3>Pending Tag Reviews</h3>
     {% if verification_contracts %}
+    <h3>Pending Assassinations</h3>
       {% for contract in verification_contracts %}
         <div class="verification-box">
-          <p><strong>{{ contract.assassin.username }}</strong> says they tagged you.</p>
-          <form method="POST" action="{{ url_for('routes.confirm_tag', contract_id=contract.id) }}">
-            <button type="submit" name="action" value="confirm">✅ Confirm</button>
-            <button type="submit" name="action" value="dispute">❌ Dispute</button>
+          <p>Has <a href="{{ url_for('routes.player_profile', username=contract.assassin.username) }}"><strong>{{ contract.assassin.username }}</strong></a> eliminated you?</p>
+          <form method="POST" action="{{ url_for('routes.confirm_tag', contract_id=contract.id) }}" class="button-group">
+            <button type="submit" name="action" value="confirm" class="btn-confirm">✅ Confirm</button>
+            <button type="submit" name="action" value="dispute" class="btn-dispute">❌ Dispute</button>
           </form>
         </div>
       {% endfor %}
     {% else %}
-      <p>No pending tag verifications.</p>
+      <p>No pending Assassination claims...</p>
     {% endif %}
 
    <!--<p><a href="{{ url_for('routes.tag_review') }}">Go to Tag Review</a></p>--> 
+    
+
+    {% if kia_pending_contracts %}
+    <h3> KIA Claims To Review</h3>
+    {% for contract in kia_pending_contracts %}
+      <div class="verification-box">
+        <p><a href="{{ url_for('routes.player_profile', username=contract.target.username) }}"><strong>{{ contract.target.username }}</strong></a> claims they eliminated you.</p>
+       <form method="POST" action="{{ url_for('routes.confirm_kia', contract_id=contract.id) }}" class="button-group">
+         <button type="submit" name="action" value="confirm" class="btn-confirm">✅ Confirm</button>
+         <button type="submit" name="action" value="dispute" class="btn-dispute">❌ Dispute</button>
+        </form>
+     </div>
+   {% endfor %}
+   {% else %}
+      <p>No pending KIA Claims...</p>
+    {% endif %}
+
+
+   <!--<p><a href="{{ url_for('routes.tag_review') }}">Go to Tag Review</a></p>--> 
+  
+     <hr>     
+
+
+    <div class="plot-foiled-section">
+      <h3>Plot Foiled</h3>
+
+      {% if is_current_user_locked %}
+        <p class="kia-disabled-msg">
+          You are currently unable to submit a KIA due to an active contract status.
+        </p>
+      {% else %}
+        <form method="POST" action="{{ url_for('routes.submit_kia') }}">
+          <label for="suspect_id">Who tried to assassinate you?</label>
+          <select name="suspect_id" id="suspect_id">
+            {% for player in active_players %}
+              {% if player.id != current_user.id %}
+                <option value="{{ player.id }}">{{ player.username }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+          <button type="submit">Submit KIA</button>
+        </form>
+      {% endif %}
+    </div>
+
+
   </div>
 </div>
+
+
 
 {% endblock %}

@@ -1,5 +1,5 @@
 from flask import Flask
-from extensions import db, login_manager
+from extensions import db, login_manager, mail
 from config import Config
 from auth import auth_bp
 from routes import routes_bp
