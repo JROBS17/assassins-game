@@ -26,7 +26,9 @@ def create_app():
     migrate = Migrate(app, db)
     
     with app.app_context():
-        db.create_all()
+        from flask_migrate import upgrade
+        upgrade()
+
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(routes_bp, url_prefix="/")
