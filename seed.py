@@ -13,7 +13,9 @@ with app.app_context():
             email="jiggerobinson17@gmail.com",
             is_admin=True
         )
-        admin.set_password("Lander13@")  # assuming you have a set_password method
+        from werkzeug.security import generate_password_hash
+        admin.password = generate_password_hash("Lander13@")
+
         db.session.add(admin)
         db.session.commit()
         print("✅ Admin user created.")
