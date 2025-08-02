@@ -8,8 +8,8 @@ from flask_migrate import Migrate
 from itsdangerous import URLSafeTimedSerializer
 
 mail = Mail()
-serializer = None  # This will be initialized with app context
-migrate = Migrate()  # Initialized here, not inside the function
+serializer = None
+migrate = Migrate()
 
 def create_app():
     app = Flask(__name__)
@@ -18,16 +18,16 @@ def create_app():
     db.init_app(app)
     login_manager.init_app(app)
     mail.init_app(app)
-    migrate.init_app(app, db)  # Use the global migrate instance
+    migrate.init_app(app, db)
 
     global serializer
     serializer = URLSafeTimedSerializer(app.config["SECRET_KEY"])
+
+    # ✅ DO NOT do wildcard import here
+    # ❌ from models import *
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(routes_bp, url_prefix="/")
 
     return app
 
-if __name__ == "__main__":
-    app = create_app()
-    app.run(debug=True)

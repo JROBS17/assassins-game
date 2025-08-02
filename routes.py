@@ -74,17 +74,6 @@ def dashboard():
     verification_contracts = Contract.query.filter_by(target_id=current_user.id, status="verifying").all()
     notifications = Notification.query.filter_by(player_id=current_user.id).order_by(Notification.id.desc()).all()
 
-    # Get current round number from settings
-    settings = Settings.query.first()
-    current_round_number = settings.current_round if settings else None
-
-    # Determine if current user has any blocking contract in current round
-    is_current_user_locked = Contract.query.filter(
-        Contract.target_id == current_user.id,
-        Contract.round == current_round_number,
-        Contract.status.in_(["verifying"])
-    ).first() is not None
-
 
 
     current_round = Round.query.filter_by(is_active=True).first()
@@ -129,7 +118,6 @@ def dashboard():
         active_players=Player.query.filter_by(status="active").all(),
         recent_profile_messages=recent_profile_messages,
         is_user_being_verified=bool(is_current_user_being_verified),
-        is_current_user_locked=is_current_user_locked,
         kia_count=kia_count
 
     )
