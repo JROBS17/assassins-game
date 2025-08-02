@@ -5,22 +5,29 @@ __pycache__/
 
 # Virtual environment
 venv/
-.env
+.env/
 
 # Environment settings
 .env
 .flaskenv
 
-# DB files (if you're not using them directly)
+# SQLite or other dev DB files
 *.sqlite3
 *.db
 
-# Flask-Migrate cache
+# Flask-Migrate cache (keep versions folder, ignore bytecode)
 migrations/versions/__pycache__/
+*.pyc
 
-# VS Code or other editor junk
+# Editor and OS-specific junk
 .vscode/
+.idea/
 *.swp
+.DS_Store
 
 # Logs
 *.log
+
+# System metadata
+*.bak
+*.tmp
