@@ -2,10 +2,10 @@
 __pycache__/
 *.py[cod]
 *.pyo
+*.pyc
 
 # Virtual environment
 venv/
-.env/
 
 # Environment settings
 .env
@@ -14,10 +14,10 @@ venv/
 # SQLite or other dev DB files
 *.sqlite3
 *.db
+/instance/   # ← Add this
 
 # Flask-Migrate cache (keep versions folder, ignore bytecode)
 migrations/versions/__pycache__/
-*.pyc
 
 # Editor and OS-specific junk
 .vscode/
@@ -31,3 +31,4 @@ migrations/versions/__pycache__/
 # System metadata
 *.bak
 *.tmp
+
