@@ -637,3 +637,31 @@ th {
   font-size: 0.9rem;
   margin: 0.5rem 0;
 }
+
+.name-toggle {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+}
+
+.assassin-name {
+  color: rgb(11, 216, 144);
+  font-weight: bold;
+}
+
+.real-name {
+  color: rgb(247, 247, 247);
+  font-weight: bold;
+}
+
+.toggle-hint {
+  font-size: 0.3rem;
+  color: rgba(67, 66, 66, 0.759);
+}
+
+
+.acname-toggle:hover {
+  background-color: rgb(237, 237, 4); /* soft yellow highlight */
+}
+

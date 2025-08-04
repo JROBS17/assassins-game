@@ -21,7 +21,9 @@ class Player(UserMixin, db.Model):
     can_have_multiple_contracts = db.Column(db.Boolean, default=False)
     max_contracts_per_round = db.Column(db.Integer, default=1)
     untouchable_count = db.Column(db.Integer, default=0)
-    times_kia = db.Column(db.Integer, default=0)  
+    times_kia = db.Column(db.Integer, default=0) 
+    actual_name = db.Column(db.String(120), nullable=True)
+
     
 
 

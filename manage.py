@@ -4,7 +4,7 @@ from extensions import db
 from flask_migrate import Migrate
 
 # ✅ Import models so Alembic can detect them
-import models
+from models import *
 
 app = create_app()
 migrate = Migrate(app, db)

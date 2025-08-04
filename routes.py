@@ -871,11 +871,15 @@ from config import Config
 def edit_profile():
     if request.method == "POST":
         username = request.form.get("username")
+        actual_name = request.form.get("actual_name")
         email = request.form.get("email")
         profile_pic = request.files.get("profile_pic")
 
         if username:
             current_user.username = username
+
+        if actual_name:
+                current_user.actual_name= actual_name
 
         if email:
             current_user.email = email
@@ -1124,3 +1128,4 @@ def resolve_kia_disputes():
     db.session.commit()
     flash("All KIA disputes reviewed. Disputed contracts reset to 'assigned'.")
     return redirect(url_for("routes.admin_panel"))
+

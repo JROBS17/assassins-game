@@ -1,6 +1,35 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>{{ player.username }}'s Profile</h2>
+
+<h2>
+  <span id="name-display" class="name-toggle assassin-name">
+  {{ player.username }}
+  </span>
+  <span id="name-label">’s Lair</span>
+  <small class="toggle-hint">(ID Confirmation)</small>
+</h2>
+
+<script>
+  const nameDisplay = document.getElementById("name-display");
+  const nameLabel = document.getElementById("name-label");
+  let showingUsername = true;
+
+  const username = "{{ player.username }}";
+  const actualName = "{{ player.actual_name or 'Unknown' }}";
+
+  nameDisplay.addEventListener("click", () => {
+    if (showingUsername) {
+      nameDisplay.textContent = actualName;
+      nameLabel.textContent = "’s Profile";
+    } else {
+      nameDisplay.textContent = username;
+      nameLabel.textContent = "’s Lair";
+    }
+    showingUsername = !showingUsername;
+  });
+</script>
+
+
 
 <div style="display: flex; gap: 2rem; flex-wrap: wrap; align-items: flex-start;">
 
