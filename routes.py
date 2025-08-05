@@ -864,7 +864,8 @@ from werkzeug.utils import secure_filename
 import os
 from extensions import db
 from models import Player
-from config import Config
+from config import DevConfig  # or ProdConfig if you're in prod
+
 
 @routes_bp.route("/profile/edit", methods=["GET", "POST"])
 @login_required
