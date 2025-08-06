@@ -23,6 +23,8 @@ class Player(UserMixin, db.Model):
     untouchable_count = db.Column(db.Integer, default=0)
     times_kia = db.Column(db.Integer, default=0) 
     actual_name = db.Column(db.String(120), nullable=True)
+    # inside class Player
+    test_flag = db.Column(db.Boolean, default=False)
 
     
 
