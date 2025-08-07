@@ -865,6 +865,7 @@ import os
 from extensions import db
 from models import Player
 from config import DevConfig  # or ProdConfig if you're in prod
+from flask import current_app  # make sure this is imported at the top
 
 
 @routes_bp.route("/profile/edit", methods=["GET", "POST"])
@@ -887,7 +888,7 @@ def edit_profile():
 
         if profile_pic:
             filename = secure_filename(profile_pic.filename)
-            filepath = os.path.join(Config.UPLOAD_FOLDER, filename)
+            filepath = os.path.join(current_app.config["UPLOAD_FOLDER"], filename)
             profile_pic.save(filepath)
             current_user.profile_pic = filename
 
