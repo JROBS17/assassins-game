@@ -153,13 +153,13 @@ def confirm_tag(contract_id):
 
         if action == "confirm":
             contract.status = "complete"
-            send_notification(contract.assassin_id, " Your tag was confirmed!")
-            send_notification(contract.target_id, "You were tagged and confirmed.")
+            send_notification(contract.assassin_id, " Your Assassination was confirmed!")
+            send_notification(contract.target_id, "You were confirmed eliminated.")
 
             # 🔔 Notify admins
             admins = Player.query.filter_by(is_admin=True).all()
             for admin in admins:
-                send_notification(admin.id, f"{contract.assassin.username} confirmed a tag on {contract.target.username}.")
+                send_notification(admin.id, f"{contract.assassin.username} confirmed a assassination on {contract.target.username}.")
 
             # ⚠️ ELIMINATION LOGIC — ONLY ON CONFIRM
             Contract.query.filter(
@@ -176,12 +176,12 @@ def confirm_tag(contract_id):
 
         elif action == "dispute":
              contract.status = "disputed"
-             send_notification(contract.assassin_id, "❌ Your tag was disputed.")
+             send_notification(contract.assassin_id, "❌ Your assassination was disputed.")
 
          # 🔔 Notify admins
              admins = Player.query.filter_by(is_admin=True).all()
              for admin in admins:
-                 send_notification(admin.id, f"{contract.assassin.username}'s tag on {contract.target.username} was disputed.")
+                 send_notification(admin.id, f"{contract.assassin.username}'s assissination on {contract.target.username} was disputed.")
 
         # ⚠️ Eliminate disputed target from current round
              Contract.query.filter(
