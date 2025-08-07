@@ -113,10 +113,12 @@ button:hover {
 
 
 .profile-pic {
+  display: block;                /* Allows margin auto to center */
+  margin: 0 auto 1rem auto;      /* Centers horizontally + bottom spacing */
   width: 100%;
   max-width: 200px;
-  border-radius: 8px;
-  margin-bottom: 1rem;
+  border-radius: 22%;           /* More rounded edges (8px → 16px) */
+  box-shadow: 0 1px 12px rgba(230, 233, 232, 0.542); /* Optional soft shadow for effect */
 }
 
 
@@ -665,3 +667,117 @@ th {
   background-color: rgb(237, 237, 4); /* soft yellow highlight */
 }
 
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+}
+
+.switch input {
+  display: none;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  background-color: #4bcc06;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  transition: 0.4s;
+  border-radius: 34px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  background-color: rgba(43, 41, 41, 0.63);
+  bottom: 4px;
+  left: 4px;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #f10202;
+}
+
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+
+.tooltip {
+  position: relative;
+  display: inline-block;
+  margin-left: 8px;
+  cursor: pointer;
+}
+
+.tooltip .info-icon {
+  font-size: 1.1rem;
+  vertical-align: middle;
+}
+
+.tooltip .tooltip-text {
+  visibility: hidden;
+  width: 260px;
+  background-color: #333;
+  color: #fff;
+  text-align: left;
+  border-radius: 6px;
+  padding: 10px;
+  position: absolute;
+  z-index: 1;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  font-size: 0.9rem;
+  pointer-events: none; /* disables accidental clicks */
+}
+
+.tooltip .tooltip-text::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: #333 transparent transparent transparent;
+}
+
+.tooltip:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* ✅ Active when clicked */
+.tooltip .tooltip-text.visible {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ✅ Mobile-specific positioning */
+@media (max-width: 600px) {
+  .tooltip .tooltip-text {
+    bottom: auto;
+    top: 125%;
+    width: 90vw;
+    max-width: 320px;
+    font-size: 0.95rem;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .tooltip .tooltip-text::after {
+    top: -12px;
+    border-color: transparent transparent #333 transparent;
+  }
+}

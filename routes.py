@@ -1131,3 +1131,14 @@ def resolve_kia_disputes():
     flash("All KIA disputes reviewed. Disputed contracts reset to 'assigned'.")
     return redirect(url_for("routes.admin_panel"))
 
+@routes_bp.route("/toggle_break", methods=["POST"])
+@login_required
+def toggle_break():
+    if current_user.status == "active":
+        current_user.status = "on a break"
+    elif current_user.status == "on a break":
+        current_user.status = "active"
+
+    db.session.commit()
+    flash(f"Status updated: {current_user.status}", "success")
+    return redirect(request.referrer or url_for("routes.home"))

@@ -12,6 +12,31 @@
       <img src="{{ url_for('static', filename='uploads/' + user.profile_pic) }}" class="profile-pic">
     {% endif %}
 
+      <form method="POST" action="{{ url_for('routes.toggle_break') }}" style="display: flex; align-items: center; gap: 10px;">
+          <label class="switch">
+              <input type="checkbox" name="status_toggle" onchange="this.form.submit()" {% if current_user.status == 'on a break' %}checked{% endif %}>
+              <span class="slider round"></span>
+          </label>
+          <span>
+              {% if current_user.status == 'on a break' %}
+                  Taking a Break
+              {% else %}
+                  Active
+              {% endif %}
+          </span>
+      
+
+        <!-- Info Bubble -->
+      <div class="tooltip">
+        <span class="info-icon">ℹ️</span>
+        <span class="tooltip-text">
+          Need a break or out of town? Turning off your "active" status will allow you to sit out and take a breather. 
+          If you are on 'Taking a break' you will not receive any contracts nor be a target of any contracts.
+          If you are in the middle of a round and you toggle the switch, your current round contracts will still exist,
+          but future contracts will not be fabricated.
+        </span>
+      </div>
+    </form>
 
     <h3>Career Stats</h3>
     <ul>
@@ -239,6 +264,7 @@
 
   </div>
 </div>
+
 
 
 
